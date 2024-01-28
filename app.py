@@ -15,9 +15,9 @@ load_dotenv()
 app = Flask(__name__)
 
 BUCKET = os.getenv("BUCKET")
-DOWNLOAD_FOLDER = os.getenv("DOWNLOAD_FOLDER")
-UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER")
-SECRET = os.getenv("SECRET")
+DOWNLOAD_FOLDER = os.getenv("DOWNLOAD_FOLDER", "downloads")
+UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")
+SECRET = os.getenv("SECRET", None)
 
 def get_bucket(request):
     request_bucket = request.args.get('bucket')
