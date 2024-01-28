@@ -1,7 +1,9 @@
 import os
 from datetime import datetime
+from pathlib import Path
+import shutil
 import threading
-from flask import Flask, render_template, request, redirect, send_file, Response
+from flask import Flask, render_template, request, redirect, send_file, Response, jsonify
 import zipstream
 from dotenv import load_dotenv
 
@@ -63,6 +65,30 @@ def download(filename):
         return send_file(output, as_attachment=True)
 
 
+@app.route("/clean", methods=['GET'])
+def clean():
+    if request.method == 'GET':
+        downloaded_files = [x for x in Path(DOWNLOAD_FOLDER).glob("*")]
+        removed_files = list()
+        for d_file in downloaded_files:
+            if d_file.is_file():
+                try:
+                    if d_file.stem == ".gitignore":
+                        continue
+                    os.remove(d_file)
+                    removed_files.append(d_file)
+                except:
+                    pass
+            else:
+                try:
+                    shutil.rmtree(d_file)
+                    removed_files.append(d_file)
+                except:
+                    pass
+
+        return jsonify([str(x) for x in removed_files])
+
+
 @app.route('/<path:text>', methods=['GET', 'POST'])
 def all_routes(text: str):
     path = text.split("/")
@@ -72,12 +98,11 @@ def all_routes(text: str):
 
     if action == "download":
         if request.method == 'GET':
-            if path[-1] == "*":
-                files = list_files_with_prefix("/".join(path[:-1]), bucket)
+            if "*" in text:
+                fetch_path = "/".join(path)
+                fetch_path = f"{fetch_path}/"              
+                files = list_files_with_prefix(fetch_path, bucket)
                 return zip_download_files(bucket, files)
-            else:
-                output = download_file("/".join(path), bucket, DOWNLOAD_FOLDER)
-                return send_file(output, as_attachment=True)
     
     # no match here
     return None
@@ -107,12 +132,6 @@ def zip_download_files(bucket, files):
     response = Response(generator(), mimetype='application/zip')
     outfile_ts = datetime.now().isoformat(timespec="seconds").replace(" ", "_").replace(":", "-")
     response.headers['Content-Disposition'] = f'attachment; filename=files_{outfile_ts}.zip'
-
-    for f in files:
-        try:
-            os.remove(f"{DOWNLOAD_FOLDER}/{f}")
-        except:
-            pass
 
     return response
 
