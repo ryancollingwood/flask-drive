@@ -1,12 +1,14 @@
 import os
-import json
 from datetime import datetime
+import threading
 from flask import Flask, render_template, request, redirect, send_file, Response
 import zipstream
 from dotenv import load_dotenv
 
 
 from s3_demo import list_files, download_file, upload_file, list_files_with_prefix
+from task_download_thread import TaskDownloadThread
+
 
 load_dotenv()
 
@@ -89,12 +91,26 @@ def zip_download_files(bucket, files):
         for chunk in z:
             yield chunk
 
+    tasks = list()
     for r in files:
-        download_file(r, bucket, DOWNLOAD_FOLDER)
+        tasks.append(TaskDownloadThread(bucket, r, DOWNLOAD_FOLDER))
+    
+    for t in tasks:
+        t.start()
+    
+    for t in tasks:
+        t.join()
 
     response = Response(generator(), mimetype='application/zip')
     outfile_ts = datetime.now().isoformat(timespec="seconds").replace(" ", "_").replace(":", "-")
     response.headers['Content-Disposition'] = f'attachment; filename=files_{outfile_ts}.zip'
+
+    for f in files:
+        try:
+            os.remove(f"{DOWNLOAD_FOLDER}/{f}")
+        except:
+            pass
+
     return response
 
 if __name__ == '__main__':
