@@ -91,15 +91,18 @@ def zip_download_files(bucket, files):
         for chunk in z:
             yield chunk
 
-    tasks = list()
-    for r in files:
-        tasks.append(TaskDownloadThread(bucket, r, DOWNLOAD_FOLDER))
-    
-    for t in tasks:
-        t.start()
-    
-    for t in tasks:
-        t.join()
+    batch_size = 20
+    for i in range(0, len(files), batch_size):
+        batch_files = files[i:i+batch_size]
+        tasks = list()
+        for r in batch_files:
+            tasks.append(TaskDownloadThread(bucket, r, DOWNLOAD_FOLDER))
+        
+        for t in tasks:
+            t.start()
+        
+        for t in tasks:
+            t.join()
 
     response = Response(generator(), mimetype='application/zip')
     outfile_ts = datetime.now().isoformat(timespec="seconds").replace(" ", "_").replace(":", "-")
